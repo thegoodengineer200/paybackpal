@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Java / Spring Boot
+target/
+*.class
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
