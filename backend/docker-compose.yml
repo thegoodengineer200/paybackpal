@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: paybackpal-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: paybackpal
+      POSTGRES_USER: paybackpal_user
+      POSTGRES_PASSWORD: paybackpal_password
+
+    ports:
+      - "5432:5432"
+    volumes:
+      - paybackpal_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paybackpal_user -d paybackpal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+volumes:
+  paybackpal_postgres_data:
