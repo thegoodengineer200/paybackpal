@@ -50,7 +50,7 @@ public class AuthService {
         );
 
         try {
-            AppUser savedUser = userRepository.saveAndFlush(user);
+            AppUser savedUser = userRepository.save(user);
             return RegisterResponse.from(savedUser);
         } catch (DataIntegrityViolationException exception) {
             throw new DuplicateResourceException("User with same email or phone number already exists");
