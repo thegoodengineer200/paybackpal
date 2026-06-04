@@ -1,5 +1,7 @@
 package com.paybackpal.backend.auth.controller;
 
+import com.paybackpal.backend.auth.dto.LoginRequest;
+import com.paybackpal.backend.auth.dto.LoginResponse;
 import com.paybackpal.backend.auth.dto.RegisterRequest;
 import com.paybackpal.backend.auth.dto.RegisterResponse;
 import com.paybackpal.backend.auth.service.AuthService;
@@ -25,5 +27,10 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
     }
 }

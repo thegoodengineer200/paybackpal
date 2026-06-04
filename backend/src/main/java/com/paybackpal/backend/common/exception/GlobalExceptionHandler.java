@@ -7,6 +7,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,32 +17,57 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(DuplicateResourceException.class)
-    public ErrorResponse handleDuplicateResourceException(
-            DuplicateResourceException exception, HttpServletRequest request
-    ) {
-        return ErrorResponse.of(
-                HttpStatus.CONFLICT.value(),
-                HttpStatus.CONFLICT.getReasonPhrase(),
+    public ResponseEntity<ErrorResponse> handleDuplicateResourceException(DuplicateResourceException exception, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.CONFLICT;
+
+        ErrorResponse errorResponse = ErrorResponse.of(
+                status.value(),
+                status.getReasonPhrase(),
                 exception.getMessage(),
                 request.getRequestURI()
         );
+
+        return ResponseEntity.status(status).body(errorResponse);
     }
 
-    public ErrorResponse handleValidationException(
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentialsException(
+            BadCredentialsException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+
+        ErrorResponse errorResponse = ErrorResponse.of(
+                status.value(),
+                status.getReasonPhrase(),
+                "Invalid email or password",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
-        Map<String, String> validateErrors = new LinkedHashMap<>();
+        Map<String, String> validationErrors = new LinkedHashMap<>();
 
         for (FieldError fieldError : exception.getBindingResult().getFieldErrors()) {
-            validateErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
+            validationErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
 
-        return ErrorResponse.validation(
-                HttpStatus.BAD_REQUEST.value(), HttpStatus.BAD_REQUEST.getReasonPhrase(), "Validation Failed",
-                request.getRequestURI(), validateErrors
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        ErrorResponse errorResponse = ErrorResponse.validation(
+                status.value(),
+                status.getReasonPhrase(),
+                "Validation failed",
+                request.getRequestURI(),
+                validationErrors
         );
 
+        return ResponseEntity.status(status).body(errorResponse);
     }
-
 }
