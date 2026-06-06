@@ -23,4 +23,9 @@ public interface BorrowerRepository extends JpaRepository<Borrower, UUID> {
             String phoneNumber,
             UUID borrowerId
     );
+
+    List<Borrower> findByIdInAndOwnerUser_IdAndActiveTrue(
+            List<UUID> borrowerIds, UUID ownerUserId
+    );
+
 }

@@ -1,5 +1,6 @@
 package com.paybackpal.backend.transaction.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -7,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 public class CreateTransactionRequest {
 
@@ -25,6 +27,9 @@ public class CreateTransactionRequest {
     private LocalDate transactionDate;
 
     private Boolean borrowed;
+
+    @Valid
+    private List<TransactionSplitRequest> splits;
 
     public CreateTransactionRequest() {
     }
@@ -49,6 +54,10 @@ public class CreateTransactionRequest {
         return borrowed;
     }
 
+    public List<TransactionSplitRequest> getSplits() {
+        return splits;
+    }
+
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
     }
@@ -67,5 +76,9 @@ public class CreateTransactionRequest {
 
     public void setBorrowed(Boolean borrowed) {
         this.borrowed = borrowed;
+    }
+
+    public void setSplits(List<TransactionSplitRequest> splits) {
+        this.splits = splits;
     }
 }

@@ -120,6 +120,10 @@ public class CardTransaction {
         this.active = false;
     }
 
+    public void updateOwnerShareAmount(BigDecimal ownerShareAmount) {
+        this.ownerShareAmount = ownerShareAmount;
+    }
+
     public UUID getId() {
         return id;
     }

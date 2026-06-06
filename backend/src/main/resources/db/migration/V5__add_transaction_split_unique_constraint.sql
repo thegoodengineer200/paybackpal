@@ -1,0 +1,3 @@
+ALTER TABLE transaction_splits
+ADD CONSTRAINT uk_transaction_splits_transaction_borrower
+UNIQUE (transaction_id, borrower_id);
