@@ -2,6 +2,7 @@ package com.paybackpal.backend.transaction.entity;
 
 public enum RepaymentStatus {
     PENDING,
-    PAID,
+    PAYMENT_REPORTED,
+    CONFIRMED,
     CANCELLED
 }

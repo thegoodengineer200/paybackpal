@@ -112,4 +112,16 @@ public class TransactionSplit {
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public void markPaymentReported() {
+        this.repaymentStatus = RepaymentStatus.PAYMENT_REPORTED;
+    }
+
+    public void markConfirmed() {
+        this.repaymentStatus = RepaymentStatus.CONFIRMED;
+    }
+
+    public void markCancelled() {
+        this.repaymentStatus = RepaymentStatus.CANCELLED;
+    }
 }
