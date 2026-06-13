@@ -6,6 +6,7 @@ import com.paybackpal.backend.borrower.repository.BorrowerRepository;
 import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.card.repository.CreditCardRepository;
 import com.paybackpal.backend.common.exception.BusinessRuleViolationException;
+import com.paybackpal.backend.notification.service.InitialBorrowerReminderService;
 import com.paybackpal.backend.transaction.dto.CreateTransactionRequest;
 import com.paybackpal.backend.transaction.dto.TransactionResponse;
 import com.paybackpal.backend.transaction.dto.TransactionSplitRequest;
@@ -52,6 +53,8 @@ class TransactionServiceTest {
 
     @Mock
     private CurrentUserService currentUserService;
+    @Mock
+    private InitialBorrowerReminderService initialBorrowerReminderService;
 
     private TransactionService transactionService;
 
@@ -66,7 +69,7 @@ class TransactionServiceTest {
                 cardTransactionRepository,
                 creditCardRepository,
                 borrowerRepository,
-                currentUserService
+                currentUserService, initialBorrowerReminderService
         );
 
         user = new AppUser(

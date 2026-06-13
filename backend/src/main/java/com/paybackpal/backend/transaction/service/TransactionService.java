@@ -7,6 +7,7 @@ import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.card.repository.CreditCardRepository;
 import com.paybackpal.backend.common.exception.BusinessRuleViolationException;
 import com.paybackpal.backend.common.exception.ResourceNotFoundException;
+import com.paybackpal.backend.notification.service.InitialBorrowerReminderService;
 import com.paybackpal.backend.transaction.dto.CreateTransactionRequest;
 import com.paybackpal.backend.transaction.dto.TransactionResponse;
 import com.paybackpal.backend.transaction.dto.TransactionSplitRequest;
@@ -35,16 +36,20 @@ public class TransactionService {
     private final BorrowerRepository borrowerRepository;
     private final CurrentUserService currentUserService;
 
+    private final InitialBorrowerReminderService initialBorrowerReminderService;
+
     public TransactionService(
             CardTransactionRepository cardTransactionRepository,
             CreditCardRepository creditCardRepository,
             BorrowerRepository borrowerRepository,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            InitialBorrowerReminderService initialBorrowerReminderService
     ) {
         this.cardTransactionRepository = cardTransactionRepository;
         this.creditCardRepository = creditCardRepository;
         this.borrowerRepository = borrowerRepository;
         this.currentUserService = currentUserService;
+        this.initialBorrowerReminderService = initialBorrowerReminderService;
     }
 
     @Transactional
@@ -198,6 +203,7 @@ public class TransactionService {
         }
 
         CardTransaction savedTransaction = cardTransactionRepository.save(transaction);
+        initialBorrowerReminderService.enqueueInitialReminders(savedTransaction);
 
         return TransactionResponse.from(savedTransaction);
     }
