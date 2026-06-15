@@ -2,6 +2,7 @@ package com.paybackpal.backend.notification.service;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
 import com.paybackpal.backend.notification.entity.NotificationType;
+import com.paybackpal.backend.notification.template.WhatsAppMessageTemplateBuilder;
 import com.paybackpal.backend.transaction.entity.CardTransaction;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
 import com.paybackpal.backend.user.entity.AppUser;
@@ -16,9 +17,11 @@ import java.time.ZoneOffset;
 public class InitialBorrowerReminderService {
 
     private final NotificationOutboxService notificationOutboxService;
+    private final WhatsAppMessageTemplateBuilder whatsAppMessageTemplateBuilder;
 
-    public InitialBorrowerReminderService(NotificationOutboxService notificationOutboxService) {
+    public InitialBorrowerReminderService(NotificationOutboxService notificationOutboxService, WhatsAppMessageTemplateBuilder whatsAppMessageTemplateBuilder) {
         this.notificationOutboxService = notificationOutboxService;
+        this.whatsAppMessageTemplateBuilder = whatsAppMessageTemplateBuilder;
     }
 
     public void enqueueInitialReminders(CardTransaction transaction) {
@@ -34,52 +37,10 @@ public class InitialBorrowerReminderService {
                     split,
                     NotificationType.INITIAL_PAYMENT_REQUEST,
                     borrower.getPhoneNumber(),
-                    buildMessageBody(transaction, split),
+                    whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(split),
                     scheduledAt
             );
         }
     }
-
-    private String buildMessageBody(CardTransaction transaction, TransactionSplit split) {
-        AppUser owner = transaction.getUser();
-        Borrower borrower = split.getBorrower();
-        String transactionLabel = getTransactionLabel(transaction);
-        String amount = formatMoney(split.getSplitAmount());
-
-        StringBuilder message = new StringBuilder();
-
-        message.append("Hi ")
-                .append(borrower.getName())
-                .append(", ")
-                .append(owner.getName())
-                .append(" added ₹")
-                .append(amount)
-                .append(" as your share for ")
-                .append(transactionLabel)
-                .append(".");
-
-        if (owner.getUpiId() != null && !owner.getUpiId().isBlank()) {
-            message.append("\nUPI: ").append(owner.getUpiId());
-        }
-
-        message.append("\nPlease pay your share.")
-                .append("\nActions: Paid | Remind me later");
-        return message.toString();
-    }
-
-    private String getTransactionLabel(CardTransaction transaction) {
-        if (transaction.getMerchantName() != null && !transaction.getMerchantName().isBlank()) {
-            return transaction.getMerchantName();
-        }
-        if (transaction.getDescription() != null && !transaction.getDescription().isBlank()) {
-            return transaction.getDescription();
-        }
-        return "this transaction";
-    }
-
-    private String formatMoney(BigDecimal amount)  {
-        return amount.setScale(2, RoundingMode.UNNECESSARY).toPlainString();
-    }
-
 
 }

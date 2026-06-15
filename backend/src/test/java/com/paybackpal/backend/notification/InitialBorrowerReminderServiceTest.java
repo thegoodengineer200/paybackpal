@@ -5,12 +5,12 @@ import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.notification.entity.NotificationType;
 import com.paybackpal.backend.notification.service.InitialBorrowerReminderService;
 import com.paybackpal.backend.notification.service.NotificationOutboxService;
+import com.paybackpal.backend.notification.template.WhatsAppMessageTemplateBuilder;
 import com.paybackpal.backend.transaction.entity.CardTransaction;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
 import com.paybackpal.backend.user.entity.AppUser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -18,11 +18,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class InitialBorrowerReminderServiceTest {
@@ -30,10 +30,16 @@ class InitialBorrowerReminderServiceTest {
     @Mock
     private NotificationOutboxService notificationOutboxService;
 
+    @Mock
+    private WhatsAppMessageTemplateBuilder whatsAppMessageTemplateBuilder;
+
     @Test
     void borrowedTransactionShouldQueueInitialReminderForEachSplit() {
         InitialBorrowerReminderService service =
-                new InitialBorrowerReminderService(notificationOutboxService);
+                new InitialBorrowerReminderService(
+                        notificationOutboxService,
+                        whatsAppMessageTemplateBuilder
+                );
 
         AppUser owner = new AppUser(
                 "Alice Bob",
@@ -81,15 +87,19 @@ class InitialBorrowerReminderServiceTest {
         transaction.addSplit(alexSplit);
         transaction.addSplit(marieSplit);
 
-        service.enqueueInitialReminders(transaction);
+        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(alexSplit))
+                .thenReturn("Message for Alex");
 
-        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(marieSplit))
+                .thenReturn("Message for Marie");
+
+        service.enqueueInitialReminders(transaction);
 
         verify(notificationOutboxService).enqueueWhatsApp(
                 eq(alexSplit),
                 eq(NotificationType.INITIAL_PAYMENT_REQUEST),
                 eq("9876500000"),
-                messageCaptor.capture(),
+                eq("Message for Alex"),
                 any(OffsetDateTime.class)
         );
 
@@ -97,25 +107,18 @@ class InitialBorrowerReminderServiceTest {
                 eq(marieSplit),
                 eq(NotificationType.INITIAL_PAYMENT_REQUEST),
                 eq("9876500001"),
-                any(String.class),
+                eq("Message for Marie"),
                 any(OffsetDateTime.class)
         );
-
-        String alexMessage = messageCaptor.getValue();
-
-        assertThat(alexMessage).contains("Hi Alex");
-        assertThat(alexMessage).contains("Alice Bob");
-        assertThat(alexMessage).contains("₹2500.00");
-        assertThat(alexMessage).contains("Pizza Express");
-        assertThat(alexMessage).contains("alice@upi");
-        assertThat(alexMessage).contains("Paid");
-        assertThat(alexMessage).contains("Remind me later");
     }
 
     @Test
     void personalTransactionShouldNotQueueReminder() {
         InitialBorrowerReminderService service =
-                new InitialBorrowerReminderService(notificationOutboxService);
+                new InitialBorrowerReminderService(
+                        notificationOutboxService,
+                        whatsAppMessageTemplateBuilder
+                );
 
         AppUser owner = new AppUser(
                 "Alice Bob",
@@ -148,5 +151,6 @@ class InitialBorrowerReminderServiceTest {
         service.enqueueInitialReminders(transaction);
 
         verifyNoInteractions(notificationOutboxService);
+        verifyNoInteractions(whatsAppMessageTemplateBuilder);
     }
 }
