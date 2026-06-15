@@ -51,6 +51,7 @@ public class BaseIntegrationTest {
     void cleanDatabase() {
         jdbcTemplate.execute("""
                 TRUNCATE TABLE
+                    borrower_action_tokens,
                     notification_outbox,
                     transaction_splits,
                     card_transactions,
