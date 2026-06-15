@@ -265,6 +265,175 @@ class TransactionApiIntegrationTest extends BaseIntegrationTest {
         assertThat(notificationCount).isZero();
     }
 
+    @Test
+    void manualReminderShouldQueueWhatsAppReminderForPendingSplit() throws Exception {
+        String token = registerAndLogin("alice@example.com", "9876543210");
+        String cardId = createCard(token);
+        String borrowerId = createBorrower(token, "Alex", "9876500000");
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(token))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode transactionResponse = json(transactionResponseBody);
+        String splitId = transactionResponse.get("splits").get(0).get("id").asText();
+
+        String reminderResponseBody = mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/remind", splitId)
+                        .header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode reminderResponse = json(reminderResponseBody);
+
+        assertThat(reminderResponse.get("notificationType").asText()).isEqualTo("MANUAL_REMINDER");
+        assertThat(reminderResponse.get("channel").asText()).isEqualTo("WHATSAPP");
+        assertThat(reminderResponse.get("status").asText()).isEqualTo("PENDING");
+        assertThat(reminderResponse.get("recipientPhoneNumber").asText()).isEqualTo("9876500000");
+
+        assertThat(reminderResponse.get("messageBody").asText())
+                .contains("gentle reminder")
+                .contains("Alex")
+                .contains("Alice Bob")
+                .contains("₹2500.00")
+                .contains("Pizza Express")
+                .contains("alice@upi");
+
+        Long manualReminderCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'MANUAL_REMINDER'
+                  AND channel = 'WHATSAPP'
+                  AND status = 'PENDING'
+                  AND recipient_phone_number = '9876500000'
+                """,
+                Long.class
+        );
+
+        assertThat(manualReminderCount).isEqualTo(1L);
+    }
+
+    @Test
+    void manualReminderShouldRejectConfirmedSplit() throws Exception {
+        String token = registerAndLogin("alice@example.com", "9876543210");
+        String cardId = createCard(token);
+        String borrowerId = createBorrower(token, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(token))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode transactionResponse = json(transactionResponseBody);
+        String splitId = transactionResponse.get("splits").get(0).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/report-paid", splitId).header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200));
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/confirm", splitId).header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200));
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/remind", splitId).header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(400));
+
+        Long manualReminderCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'MANUAL_REMINDER'
+                """,
+                Long.class
+        );
+
+        assertThat(manualReminderCount).isZero();
+    }
+
+    @Test
+    void manualReminderShouldRejectSplitOwnedByAnotherUser() throws Exception {
+        String aliceToken = registerAndLogin("alice@example.com", "9876543210");
+        String bobToken = registerAndLogin("bob@example.com", "9876543211");
+        String cardId = createCard(aliceToken);
+        String borrowerId = createBorrower(aliceToken, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode transactionResponse = json(transactionResponseBody);
+        String splitId = transactionResponse.get("splits").get(0).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/remind", splitId).header("Authorization", bearer(bobToken)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(404));
+
+        Long manualReminderCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'MANUAL_REMINDER'
+                """,
+                Long.class
+        );
+
+        assertThat(manualReminderCount).isZero();
+    }
+
     private String createCard(String token) throws Exception {
         String responseBody = mockMvc.perform(post("/api/v1/cards")
                         .header("Authorization", bearer(token))

@@ -3,6 +3,9 @@ package com.paybackpal.backend.transaction.service;
 import com.paybackpal.backend.auth.service.CurrentUserService;
 import com.paybackpal.backend.common.exception.BusinessRuleViolationException;
 import com.paybackpal.backend.common.exception.ResourceNotFoundException;
+import com.paybackpal.backend.notification.dto.NotificationOutboxResponse;
+import com.paybackpal.backend.notification.entity.NotificationOutbox;
+import com.paybackpal.backend.notification.service.ManualReminderService;
 import com.paybackpal.backend.transaction.dto.TransactionSplitResponse;
 import com.paybackpal.backend.transaction.entity.RepaymentStatus;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
@@ -21,15 +24,18 @@ public class RepaymentService {
     private final TransactionSplitRepository transactionSplitRepository;
     private final CardTransactionRepository cardTransactionRepository;
     private final CurrentUserService currentUserService;
+    private final ManualReminderService manualReminderService;
 
     public RepaymentService(
             TransactionSplitRepository transactionSplitRepository,
             CardTransactionRepository cardTransactionRepository,
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            ManualReminderService manualReminderService
     ) {
         this.transactionSplitRepository = transactionSplitRepository;
         this.cardTransactionRepository = cardTransactionRepository;
         this.currentUserService = currentUserService;
+        this.manualReminderService = manualReminderService;
     }
 
     @Transactional(readOnly = true)
@@ -128,6 +134,27 @@ public class RepaymentService {
         return transactionSplitRepository
                 .findActiveSplitForUser(splitId, currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction split not found"));
+    }
+
+    @Transactional
+    public NotificationOutboxResponse remindBorrower(UUID splitId) {
+        AppUser currentUser = currentUserService.getCurrentUser();
+        TransactionSplit split = getSplitForCurrentUser(splitId, currentUser.getId());
+        validateManualReminderAllowed(split);
+        NotificationOutbox notification = manualReminderService.enqueueManualReminder(split);
+        return NotificationOutboxResponse.from(notification);
+    }
+
+    private void validateManualReminderAllowed(TransactionSplit split) {
+        if (split.getRepaymentStatus() == RepaymentStatus.CONFIRMED) {
+            throw new BusinessRuleViolationException(
+                    "Confirmed payment does not need a reminder!"
+            );
+        }
+        if (split.getRepaymentStatus() == RepaymentStatus.CANCELLED) {
+            throw new BusinessRuleViolationException(
+                    "Cancelled split cannot be reminded!");
+        }
     }
 }
 

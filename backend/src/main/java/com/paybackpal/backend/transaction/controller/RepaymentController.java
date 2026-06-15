@@ -1,5 +1,6 @@
 package com.paybackpal.backend.transaction.controller;
 
+import com.paybackpal.backend.notification.dto.NotificationOutboxResponse;
 import com.paybackpal.backend.transaction.dto.TransactionSplitResponse;
 import com.paybackpal.backend.transaction.service.RepaymentService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,4 +49,11 @@ public class RepaymentController {
     ) {
         return repaymentService.cancelSplit(splitId);
     }
+
+    @PostMapping("/transaction-splits/{splitId}/remind")
+    public NotificationOutboxResponse remindBorrower(@PathVariable UUID splitId) {
+        return repaymentService.remindBorrower(splitId);
+    }
+
+
 }
