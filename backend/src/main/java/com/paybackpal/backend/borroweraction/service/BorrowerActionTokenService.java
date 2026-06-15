@@ -54,7 +54,7 @@ public class BorrowerActionTokenService {
             BorrowerActionType expectedActionType
     ) {
         String tokenHash = secureBorrowerActionTokenService.hashToken(rawToken);
-        BorrowerActionToken token = borrowerActionTokenRepository.findByTokenHash(tokenHash).orElseThrow(() -> new ResourceNotFoundException("Invalid borrower action token"));
+        BorrowerActionToken token = borrowerActionTokenRepository.findByTokenHashWithSplitDetails(tokenHash).orElseThrow(() -> new ResourceNotFoundException("Invalid borrower action token"));
 
         if (token.getActionType() != expectedActionType) {
             throw new BusinessRuleViolationException("Borrower action token is not valid for this action");
