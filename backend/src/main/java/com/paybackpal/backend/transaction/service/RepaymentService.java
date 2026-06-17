@@ -6,6 +6,7 @@ import com.paybackpal.backend.common.exception.ResourceNotFoundException;
 import com.paybackpal.backend.notification.dto.NotificationOutboxResponse;
 import com.paybackpal.backend.notification.entity.NotificationOutbox;
 import com.paybackpal.backend.notification.service.ManualReminderService;
+import com.paybackpal.backend.notification.service.PaymentConfirmedNotificationService;
 import com.paybackpal.backend.transaction.dto.TransactionSplitResponse;
 import com.paybackpal.backend.transaction.entity.RepaymentStatus;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
@@ -25,13 +26,16 @@ public class RepaymentService {
     private final CardTransactionRepository cardTransactionRepository;
     private final CurrentUserService currentUserService;
     private final ManualReminderService manualReminderService;
+    private final PaymentConfirmedNotificationService paymentConfirmedNotificationService;
 
     public RepaymentService(
             TransactionSplitRepository transactionSplitRepository,
             CardTransactionRepository cardTransactionRepository,
             CurrentUserService currentUserService,
-            ManualReminderService manualReminderService
+            ManualReminderService manualReminderService,
+            PaymentConfirmedNotificationService paymentConfirmedNotificationService
     ) {
+        this.paymentConfirmedNotificationService = paymentConfirmedNotificationService;
         this.transactionSplitRepository = transactionSplitRepository;
         this.cardTransactionRepository = cardTransactionRepository;
         this.currentUserService = currentUserService;
@@ -105,6 +109,7 @@ public class RepaymentService {
         split.markConfirmed();
 
         TransactionSplit savedSplit = transactionSplitRepository.save(split);
+        paymentConfirmedNotificationService.enqueuePaymentConfirmedToBorrower(savedSplit);
 
         return TransactionSplitResponse.from(savedSplit);
     }

@@ -434,6 +434,133 @@ class TransactionApiIntegrationTest extends BaseIntegrationTest {
         assertThat(manualReminderCount).isZero();
     }
 
+    @Test
+    void confirmPaymentShouldQueuePaymentConfirmedNotificationToBorrower() throws Exception {
+        String token = registerAndLogin("alice@example.com", "9876543210");
+
+        String cardId = createCard(token);
+        String borrowerId = createBorrower(token, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(token))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode transactionResponse = json(transactionResponseBody);
+        String splitId = transactionResponse.get("splits").get(0).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/report-paid", splitId)
+                        .header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200));
+
+        String confirmResponseBody = mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/confirm", splitId)
+                        .header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode confirmResponse = json(confirmResponseBody);
+
+        assertThat(confirmResponse.get("repaymentStatus").asText())
+                .isEqualTo("CONFIRMED");
+
+        Long notificationCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'PAYMENT_CONFIRMED_TO_BORROWER'
+                  AND channel = 'WHATSAPP'
+                  AND status = 'PENDING'
+                  AND recipient_phone_number = '9876500000'
+                """,
+                Long.class
+        );
+
+        assertThat(notificationCount).isEqualTo(1L);
+
+        String messageBody = jdbcTemplate.queryForObject(
+                """
+                SELECT message_body
+                FROM notification_outbox
+                WHERE notification_type = 'PAYMENT_CONFIRMED_TO_BORROWER'
+                LIMIT 1
+                """,
+                String.class
+        );
+
+        assertThat(messageBody).contains("Hi Alex");
+        assertThat(messageBody).contains("payment of ₹2500.00");
+        assertThat(messageBody).contains("Pizza Express");
+        assertThat(messageBody).contains("confirmed by Alice Bob");
+    }
+
+    @Test
+    void confirmPaymentShouldNotQueueNotificationWhenPaymentWasNotReported() throws Exception {
+        String token = registerAndLogin("alice@example.com", "9876543210");
+
+        String cardId = createCard(token);
+        String borrowerId = createBorrower(token, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(token))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode transactionResponse = json(transactionResponseBody);
+        String splitId = transactionResponse.get("splits").get(0).get("id").asText();
+
+        mockMvc.perform(post("/api/v1/transaction-splits/{splitId}/confirm", splitId).header("Authorization", bearer(token)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(400));
+
+        Long notificationCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'PAYMENT_CONFIRMED_TO_BORROWER'
+                """,
+                Long.class
+        );
+
+        assertThat(notificationCount).isZero();
+    }
+
     private String createCard(String token) throws Exception {
         String responseBody = mockMvc.perform(post("/api/v1/cards")
                         .header("Authorization", bearer(token))
