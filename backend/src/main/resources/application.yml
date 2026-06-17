@@ -33,6 +33,7 @@ management:
 app:
   public-actions:
     base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
+    remind-me-later-delay-hours: ${REMIND_ME_LATER_DELAY_HOURS:24}
   jwt:
     secret: ${JWT_SECRET:cGF5YmFja3BhbC1sb2NhbC1kZXYtc2VjcmV0LW11c3QtYmUtMzItYnl0ZXM=}
     expiration-minutes: 1440

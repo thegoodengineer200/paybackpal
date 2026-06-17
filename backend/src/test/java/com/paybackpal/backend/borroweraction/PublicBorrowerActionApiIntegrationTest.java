@@ -191,6 +191,222 @@ class PublicBorrowerActionApiIntegrationTest extends BaseIntegrationTest {
                 .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(404));
     }
 
+    @Test
+    void publicRemindMeLaterShouldScheduleFutureReminderUseTokenAndKeepSplitPending() throws Exception {
+        String ownerToken = registerAndLogin("alice@example.com", "9876543210");
+
+        String cardId = createCard(ownerToken);
+        String borrowerId = createBorrower(ownerToken, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String splitId = json(transactionResponseBody)
+                .get("splits")
+                .get(0)
+                .get("id")
+                .asText();
+
+        TransactionSplit split = transactionSplitRepository.findById(UUID.fromString(splitId))
+                .orElseThrow();
+
+        GeneratedBorrowerActionToken generatedToken = borrowerActionTokenService.generateToken(
+                split,
+                BorrowerActionType.REMIND_ME_LATER
+        );
+
+        String responseBody = mockMvc.perform(post(
+                        "/api/v1/public/borrower-actions/{token}/remind-me-later",
+                        generatedToken.getRawToken()
+                ))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode response = json(responseBody);
+
+        assertThat(response.get("transactionSplitId").asText()).isEqualTo(splitId);
+        assertThat(response.get("repaymentStatus").asText()).isEqualTo("PENDING");
+        assertThat(response.get("message").asText()).contains("remind you later");
+        assertThat(response.get("nextReminderAt").asText()).isNotBlank();
+
+        String repaymentStatus = jdbcTemplate.queryForObject(
+                """
+                SELECT repayment_status
+                FROM transaction_splits
+                WHERE id = ?::uuid
+                """,
+                String.class,
+                splitId
+        );
+
+        assertThat(repaymentStatus).isEqualTo("PENDING");
+
+        Long usedTokenCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM borrower_action_tokens
+                WHERE used_at IS NOT NULL
+                """,
+                Long.class
+        );
+
+        assertThat(usedTokenCount).isEqualTo(1L);
+
+        Long futureReminderCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'MANUAL_REMINDER'
+                  AND channel = 'WHATSAPP'
+                  AND status = 'PENDING'
+                  AND recipient_phone_number = '9876500000'
+                  AND scheduled_at > NOW()
+                """,
+                Long.class
+        );
+
+        assertThat(futureReminderCount).isEqualTo(1L);
+
+        Long confirmationCount = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM notification_outbox
+                WHERE notification_type = 'REMIND_ME_LATER_CONFIGURATION'
+                  AND channel = 'WHATSAPP'
+                  AND status = 'PENDING'
+                  AND recipient_phone_number = '9876500000'
+                """,
+                Long.class
+        );
+
+        assertThat(confirmationCount).isEqualTo(1L);
+    }
+
+    @Test
+    void publicRemindMeLaterShouldRejectReusedToken() throws Exception {
+        String ownerToken = registerAndLogin("alice@example.com", "9876543210");
+
+        String cardId = createCard(ownerToken);
+        String borrowerId = createBorrower(ownerToken, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String splitId = json(transactionResponseBody)
+                .get("splits")
+                .get(0)
+                .get("id")
+                .asText();
+
+        TransactionSplit split = transactionSplitRepository.findById(UUID.fromString(splitId)).orElseThrow();
+        GeneratedBorrowerActionToken generatedToken = borrowerActionTokenService.generateToken(split, BorrowerActionType.REMIND_ME_LATER);
+
+        mockMvc.perform(post(
+                        "/api/v1/public/borrower-actions/{token}/remind-me-later",
+                        generatedToken.getRawToken()
+                ))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200));
+
+        mockMvc.perform(post(
+                        "/api/v1/public/borrower-actions/{token}/remind-me-later",
+                        generatedToken.getRawToken()
+                ))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(400));
+    }
+
+    @Test
+    void publicRemindMeLaterShouldRejectReportPaidToken() throws Exception {
+        String ownerToken = registerAndLogin("alice@example.com", "9876543210");
+
+        String cardId = createCard(ownerToken);
+        String borrowerId = createBorrower(ownerToken, "Alex", "9876500000");
+
+        String transactionResponseBody = mockMvc.perform(post("/api/v1/cards/{cardId}/transactions", cardId)
+                        .header("Authorization", bearer(ownerToken))
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "amount": 10000,
+                                  "description": "Dinner with friends",
+                                  "merchantName": "Pizza Express",
+                                  "transactionDate": "2026-06-06",
+                                  "borrowed": true,
+                                  "splits": [
+                                    {
+                                      "borrowerId": "%s",
+                                      "splitPercentage": 25
+                                    }
+                                  ]
+                                }
+                                """.formatted(borrowerId)))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(201))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String splitId = json(transactionResponseBody)
+                .get("splits")
+                .get(0)
+                .get("id")
+                .asText();
+
+        TransactionSplit split = transactionSplitRepository.findById(UUID.fromString(splitId))
+                .orElseThrow();
+
+        GeneratedBorrowerActionToken generatedToken = borrowerActionTokenService.generateToken(
+                split,
+                BorrowerActionType.REPORT_PAID
+        );
+
+        mockMvc.perform(post(
+                        "/api/v1/public/borrower-actions/{token}/remind-me-later",
+                        generatedToken.getRawToken()
+                ))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(400));
+    }
+
     private String createCard(String token) throws Exception {
         String responseBody = mockMvc.perform(post("/api/v1/cards")
                         .header("Authorization", bearer(token))

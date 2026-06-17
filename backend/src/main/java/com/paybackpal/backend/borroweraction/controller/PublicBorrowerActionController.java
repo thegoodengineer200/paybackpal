@@ -25,4 +25,9 @@ public class PublicBorrowerActionController {
     ) {
         return publicBorrowerActionService.reportPaid(token);
     }
+
+    @PostMapping("/{token}/remind-me-later")
+    public BorrowerActionResponse remindMeLater(@PathVariable String token) {
+        return publicBorrowerActionService.remindMeLater(token);
+    }
 }

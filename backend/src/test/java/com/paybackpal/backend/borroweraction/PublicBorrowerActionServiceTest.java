@@ -1,6 +1,7 @@
 package com.paybackpal.backend.borroweraction;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
+import com.paybackpal.backend.borroweraction.config.PublicActionLinkProperties;
 import com.paybackpal.backend.borroweraction.dto.BorrowerActionResponse;
 import com.paybackpal.backend.borroweraction.entity.BorrowerActionToken;
 import com.paybackpal.backend.borroweraction.entity.BorrowerActionType;
@@ -9,6 +10,7 @@ import com.paybackpal.backend.borroweraction.service.PublicBorrowerActionService
 import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.common.exception.BusinessRuleViolationException;
 import com.paybackpal.backend.notification.service.PaymentReportedNotificationService;
+import com.paybackpal.backend.notification.service.RemindMeLaterNotificationService;
 import com.paybackpal.backend.transaction.entity.CardTransaction;
 import com.paybackpal.backend.transaction.entity.RepaymentStatus;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
@@ -39,12 +41,19 @@ class PublicBorrowerActionServiceTest {
     @Mock
     private PaymentReportedNotificationService paymentReportedNotificationService;
 
+    @Mock
+    private RemindMeLaterNotificationService remindMeLaterNotificationService;
+
     @Test
     void reportPaidShouldMarkSplitPaymentReportedUseTokenAndNotifyOwner() {
+        PublicActionLinkProperties properties = new PublicActionLinkProperties();
+        properties.setRemindMeLaterDelayHours(24);
         PublicBorrowerActionService service = new PublicBorrowerActionService(
                 borrowerActionTokenService,
                 transactionSplitRepository,
-                paymentReportedNotificationService
+                paymentReportedNotificationService,
+                remindMeLaterNotificationService,
+                properties
         );
 
         TransactionSplit split = createSplit();
@@ -76,10 +85,14 @@ class PublicBorrowerActionServiceTest {
 
     @Test
     void reportPaidShouldRejectAlreadyConfirmedSplit() {
+        PublicActionLinkProperties properties = new PublicActionLinkProperties();
+        properties.setRemindMeLaterDelayHours(24);
         PublicBorrowerActionService service = new PublicBorrowerActionService(
                 borrowerActionTokenService,
                 transactionSplitRepository,
-                paymentReportedNotificationService
+                paymentReportedNotificationService,
+                remindMeLaterNotificationService,
+                properties
         );
 
         TransactionSplit split = createSplit();
@@ -105,6 +118,84 @@ class PublicBorrowerActionServiceTest {
         verify(transactionSplitRepository, never()).save(any());
         verify(borrowerActionTokenService, never()).markTokenUsed(any());
         verify(paymentReportedNotificationService, never()).enqueuePaymentReportedToOwner(any());
+    }
+
+    @Test
+    void remindMeLaterShouldScheduleFutureReminderUseTokenAndKeepSplitPending() {
+        PublicActionLinkProperties properties = new PublicActionLinkProperties();
+        properties.setRemindMeLaterDelayHours(24);
+
+        PublicBorrowerActionService service = new PublicBorrowerActionService(
+                borrowerActionTokenService,
+                transactionSplitRepository,
+                paymentReportedNotificationService,
+                remindMeLaterNotificationService,
+                properties
+        );
+
+        TransactionSplit split = createSplit();
+
+        BorrowerActionToken token = new BorrowerActionToken(
+                split,
+                BorrowerActionType.REMIND_ME_LATER,
+                "hashed-token",
+                OffsetDateTime.now().plusDays(7)
+        );
+
+        when(borrowerActionTokenService.getValidToken(
+                "raw-token",
+                BorrowerActionType.REMIND_ME_LATER
+        )).thenReturn(token);
+
+        BorrowerActionResponse response = service.remindMeLater("raw-token");
+
+        assertThat(split.getRepaymentStatus()).isEqualTo(RepaymentStatus.PENDING);
+        assertThat(response.getRepaymentStatus()).isEqualTo("PENDING");
+        assertThat(response.getMessage()).contains("remind you later");
+        assertThat(response.getNextReminderAt()).isNotNull();
+
+        verify(remindMeLaterNotificationService).enqueueFutureReminder(eq(split), any(OffsetDateTime.class));
+        verify(remindMeLaterNotificationService).enqueueReminderScheduledConfirmation(eq(split), any(OffsetDateTime.class));
+
+        verify(borrowerActionTokenService).markTokenUsed(token);
+        verify(transactionSplitRepository, never()).save(any());
+        verify(paymentReportedNotificationService, never()).enqueuePaymentReportedToOwner(any());
+    }
+
+    @Test
+    void remindMeLaterShouldRejectPaymentReportedSplit() {
+        PublicActionLinkProperties properties = new PublicActionLinkProperties();
+
+        PublicBorrowerActionService service = new PublicBorrowerActionService(
+                borrowerActionTokenService,
+                transactionSplitRepository,
+                paymentReportedNotificationService,
+                remindMeLaterNotificationService,
+                properties
+        );
+
+        TransactionSplit split = createSplit();
+        split.markPaymentReported();
+
+        BorrowerActionToken token = new BorrowerActionToken(
+                split,
+                BorrowerActionType.REMIND_ME_LATER,
+                "hashed-token",
+                OffsetDateTime.now().plusDays(7)
+        );
+
+        when(borrowerActionTokenService.getValidToken(
+                "raw-token",
+                BorrowerActionType.REMIND_ME_LATER
+        )).thenReturn(token);
+
+        assertThatThrownBy(() -> service.remindMeLater("raw-token"))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("already been reported");
+
+        verify(remindMeLaterNotificationService, never()).enqueueFutureReminder(any(), any());
+        verify(remindMeLaterNotificationService, never()).enqueueReminderScheduledConfirmation(any(), any());
+        verify(borrowerActionTokenService, never()).markTokenUsed(any());
     }
 
     private TransactionSplit createSplit() {
