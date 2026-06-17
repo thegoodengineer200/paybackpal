@@ -31,6 +31,8 @@ management:
         include: health,info
 
 app:
+  whatsapp:
+    provider: ${WHATSAPP_PROVIDER:fake}
   public-actions:
     base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
     remind-me-later-delay-hours: ${REMIND_ME_LATER_DELAY_HOURS:24}
