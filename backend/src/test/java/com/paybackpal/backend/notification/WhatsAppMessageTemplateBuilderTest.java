@@ -1,6 +1,7 @@
 package com.paybackpal.backend.notification;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
+import com.paybackpal.backend.borroweraction.dto.BorrowerActionLinks;
 import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.notification.template.WhatsAppMessageTemplateBuilder;
 import com.paybackpal.backend.transaction.entity.CardTransaction;
@@ -126,6 +127,39 @@ class WhatsAppMessageTemplateBuilderTest {
 
         assertThat(message).doesNotContain("UPI:");
     }
+
+
+    @Test
+    void initialPaymentRequestShouldIncludeActionLinksWhenProvided() {
+        TransactionSplit split = createSplit();
+
+        BorrowerActionLinks actionLinks = new BorrowerActionLinks(
+                "https://paybackpal.com/report-paid-link",
+                "https://paybackpal.com/remind-me-later-link"
+        );
+
+        String message = templateBuilder.buildInitialPaymentRequest(split, actionLinks);
+
+        assertThat(message).contains("Paid: https://paybackpal.com/report-paid-link");
+        assertThat(message).contains("Remind me later: https://paybackpal.com/remind-me-later-link");
+        assertThat(message).doesNotContain("Actions: Paid | Remind me later");
+    }
+
+    @Test
+    void manualReminderShouldIncludeActionLinksWhenProvided() {
+        TransactionSplit split = createSplit();
+        BorrowerActionLinks actionLinks = new BorrowerActionLinks(
+                "https://paybackpal.com/report-paid-link",
+                "https://paybackpal.com/remind-me-later-link"
+        );
+
+        String message = templateBuilder.buildManualReminder(split, actionLinks);
+        assertThat(message).contains("Paid: https://paybackpal.com/report-paid-link");
+        assertThat(message).contains("Remind me later: https://paybackpal.com/remind-me-later-link");
+        assertThat(message).doesNotContain("Actions: Paid | Remind me later");
+    }
+
+
 
     private TransactionSplit createSplit() {
         AppUser owner = createOwner("alice@upi");

@@ -96,7 +96,7 @@ class BorrowerActionTokenServiceTest {
         when(secureBorrowerActionTokenService.hashToken("raw-token"))
                 .thenReturn("hashed-token");
 
-        when(borrowerActionTokenRepository.findByTokenHash("hashed-token"))
+        when(borrowerActionTokenRepository.findByTokenHashWithSplitDetails("hashed-token"))
                 .thenReturn(Optional.of(token));
 
         BorrowerActionToken result = service.getValidToken(
@@ -124,7 +124,7 @@ class BorrowerActionTokenServiceTest {
         when(secureBorrowerActionTokenService.hashToken("raw-token"))
                 .thenReturn("hashed-token");
 
-        when(borrowerActionTokenRepository.findByTokenHash("hashed-token"))
+        when(borrowerActionTokenRepository.findByTokenHashWithSplitDetails("hashed-token"))
                 .thenReturn(Optional.of(token));
 
         assertThatThrownBy(() -> service.getValidToken(
@@ -143,7 +143,7 @@ class BorrowerActionTokenServiceTest {
         when(secureBorrowerActionTokenService.hashToken("raw-token"))
                 .thenReturn("hashed-token");
 
-        when(borrowerActionTokenRepository.findByTokenHash("hashed-token"))
+        when(borrowerActionTokenRepository.findByTokenHashWithSplitDetails("hashed-token"))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getValidToken(
@@ -169,7 +169,7 @@ class BorrowerActionTokenServiceTest {
         when(secureBorrowerActionTokenService.hashToken("raw-token"))
                 .thenReturn("hashed-token");
 
-        when(borrowerActionTokenRepository.findByTokenHash("hashed-token"))
+        when(borrowerActionTokenRepository.findByTokenHashWithSplitDetails("hashed-token"))
                 .thenReturn(Optional.of(token));
 
         assertThatThrownBy(() -> service.getValidToken(

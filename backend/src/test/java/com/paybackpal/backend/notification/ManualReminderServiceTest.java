@@ -1,6 +1,8 @@
 package com.paybackpal.backend.notification;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
+import com.paybackpal.backend.borroweraction.dto.BorrowerActionLinks;
+import com.paybackpal.backend.borroweraction.service.BorrowerActionLinkBuilder;
 import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.notification.entity.NotificationType;
 import com.paybackpal.backend.notification.service.ManualReminderService;
@@ -32,11 +34,15 @@ class ManualReminderServiceTest {
     @Mock
     private WhatsAppMessageTemplateBuilder whatsAppMessageTemplateBuilder;
 
+    @Mock
+    private BorrowerActionLinkBuilder borrowerActionLinkBuilder;
+
     @Test
     void enqueueManualReminderShouldQueueManualReminderWhatsAppNotification() {
         ManualReminderService service = new ManualReminderService(
                 notificationOutboxService,
-                whatsAppMessageTemplateBuilder
+                whatsAppMessageTemplateBuilder,
+                borrowerActionLinkBuilder
         );
 
         AppUser owner = new AppUser(
@@ -76,14 +82,19 @@ class ManualReminderServiceTest {
         );
 
         transaction.addSplit(split);
+        BorrowerActionLinks actionLinks = new BorrowerActionLinks(
+                "https://paybackpal.com/paid",
+            "https://paybackpal.com/later"
+        );
+        when(borrowerActionLinkBuilder.buildLinks(split)).thenReturn(actionLinks);
 
-        when(whatsAppMessageTemplateBuilder.buildManualReminder(split)).thenReturn("Manual reminder message");
+        when(whatsAppMessageTemplateBuilder.buildManualReminder(split, actionLinks)).thenReturn("Manual reminder message with Links");
         service.enqueueManualReminder(split);
         verify(notificationOutboxService).enqueueWhatsApp(
                 eq(split),
                 eq(NotificationType.MANUAL_REMINDER),
                 eq("9876500000"),
-                eq("Manual reminder message"),
+                eq("Manual reminder message with Links"),
                 any(OffsetDateTime.class)
         );
     }

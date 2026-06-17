@@ -1,6 +1,8 @@
 package com.paybackpal.backend.notification;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
+import com.paybackpal.backend.borroweraction.dto.BorrowerActionLinks;
+import com.paybackpal.backend.borroweraction.service.BorrowerActionLinkBuilder;
 import com.paybackpal.backend.card.entity.CreditCard;
 import com.paybackpal.backend.notification.entity.NotificationType;
 import com.paybackpal.backend.notification.service.InitialBorrowerReminderService;
@@ -33,12 +35,16 @@ class InitialBorrowerReminderServiceTest {
     @Mock
     private WhatsAppMessageTemplateBuilder whatsAppMessageTemplateBuilder;
 
+    @Mock
+    private BorrowerActionLinkBuilder borrowerActionLinkBuilder;
+
     @Test
     void borrowedTransactionShouldQueueInitialReminderForEachSplit() {
         InitialBorrowerReminderService service =
                 new InitialBorrowerReminderService(
                         notificationOutboxService,
-                        whatsAppMessageTemplateBuilder
+                        whatsAppMessageTemplateBuilder,
+                        borrowerActionLinkBuilder
                 );
 
         AppUser owner = new AppUser(
@@ -86,12 +92,23 @@ class InitialBorrowerReminderServiceTest {
 
         transaction.addSplit(alexSplit);
         transaction.addSplit(marieSplit);
+        BorrowerActionLinks alexLinks = new BorrowerActionLinks(
+                "https://paybackpal.com/alex-paid",
+                "https://paybackpal.com/alex-later"
+        );
+        BorrowerActionLinks marieLinks = new BorrowerActionLinks(
+                "https://paybackpal.com/marie-paid",
+                "https://paybackpal.com/marie-later"
+        );
 
-        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(alexSplit))
-                .thenReturn("Message for Alex");
+        when(borrowerActionLinkBuilder.buildLinks(alexSplit)).thenReturn(alexLinks);
+        when(borrowerActionLinkBuilder.buildLinks(marieSplit)).thenReturn(marieLinks);
 
-        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(marieSplit))
-                .thenReturn("Message for Marie");
+        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(alexSplit, alexLinks))
+                .thenReturn("Message for Alex with Links");
+
+        when(whatsAppMessageTemplateBuilder.buildInitialPaymentRequest(marieSplit, marieLinks))
+                .thenReturn("Message for Marie with Links");
 
         service.enqueueInitialReminders(transaction);
 
@@ -99,7 +116,7 @@ class InitialBorrowerReminderServiceTest {
                 eq(alexSplit),
                 eq(NotificationType.INITIAL_PAYMENT_REQUEST),
                 eq("9876500000"),
-                eq("Message for Alex"),
+                eq("Message for Alex with Links"),
                 any(OffsetDateTime.class)
         );
 
@@ -107,7 +124,7 @@ class InitialBorrowerReminderServiceTest {
                 eq(marieSplit),
                 eq(NotificationType.INITIAL_PAYMENT_REQUEST),
                 eq("9876500001"),
-                eq("Message for Marie"),
+                eq("Message for Marie with Links"),
                 any(OffsetDateTime.class)
         );
     }
@@ -117,7 +134,8 @@ class InitialBorrowerReminderServiceTest {
         InitialBorrowerReminderService service =
                 new InitialBorrowerReminderService(
                         notificationOutboxService,
-                        whatsAppMessageTemplateBuilder
+                        whatsAppMessageTemplateBuilder,
+                        borrowerActionLinkBuilder
                 );
 
         AppUser owner = new AppUser(
@@ -152,5 +170,6 @@ class InitialBorrowerReminderServiceTest {
 
         verifyNoInteractions(notificationOutboxService);
         verifyNoInteractions(whatsAppMessageTemplateBuilder);
+        verifyNoInteractions(borrowerActionLinkBuilder);
     }
 }

@@ -1,6 +1,7 @@
 package com.paybackpal.backend.notification.template;
 
 import com.paybackpal.backend.borrower.entity.Borrower;
+import com.paybackpal.backend.borroweraction.dto.BorrowerActionLinks;
 import com.paybackpal.backend.transaction.entity.CardTransaction;
 import com.paybackpal.backend.transaction.entity.TransactionSplit;
 import com.paybackpal.backend.user.entity.AppUser;
@@ -17,7 +18,7 @@ public class WhatsAppMessageTemplateBuilder {
     private static final DateTimeFormatter REMINDER_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
 
-    public String buildInitialPaymentRequest(TransactionSplit split) {
+    public String buildInitialPaymentRequest(TransactionSplit split, BorrowerActionLinks actionLinks) {
         CardTransaction transaction = split.getCardTransaction();
         AppUser owner = transaction.getUser();
         Borrower borrower = split.getBorrower();
@@ -33,14 +34,23 @@ public class WhatsAppMessageTemplateBuilder {
                 .append(" as your share for ")
                 .append(getTransactionLabel(transaction))
                 .append(".");
-
         appendUpiLineIfPresent(message, owner);
 
-        message.append("\nPlease pay your share.").append("\nActions: Paid | Remind me later");
+        message.append("\nPlease pay your share.");
+        appendActionLinks(message, actionLinks);
         return message.toString();
+
+    }
+
+    public String buildInitialPaymentRequest(TransactionSplit split) {
+        return buildInitialPaymentRequest(split, null);
     }
 
     public String buildManualReminder(TransactionSplit split) {
+        return buildManualReminder(split, null);
+    }
+
+    public String buildManualReminder(TransactionSplit split, BorrowerActionLinks actionLinks) {
         CardTransaction transaction = split.getCardTransaction();
         AppUser owner = transaction.getUser();
         Borrower borrower = split.getBorrower();
@@ -57,8 +67,19 @@ public class WhatsAppMessageTemplateBuilder {
                 .append(".");
 
         appendUpiLineIfPresent(message, owner);
-        message.append("\nActions: Paid | Remind me later");
+        appendActionLinks(message, actionLinks);
         return message.toString();
+    }
+
+    private void appendActionLinks(StringBuilder message, BorrowerActionLinks actionLinks) {
+        if (actionLinks == null) {
+            message.append("\nActions: Paid | Remind me later");
+            return;
+        }
+        message.append("\n\nPaid: ")
+                .append(actionLinks.getReportPaidUrl())
+                .append("\nRemind me later: ")
+                .append(actionLinks.getRemindMeLaterUrl());
     }
 
     public String buildPaymentReportedToOwner(TransactionSplit split) {
