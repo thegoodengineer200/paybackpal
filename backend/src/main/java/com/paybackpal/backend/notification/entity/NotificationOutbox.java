@@ -110,6 +110,12 @@ public class NotificationOutbox {
         this.retryCount++;
     }
 
+    public void scheduleRetry(OffsetDateTime nextRetryAt) {
+        this.status = NotificationStatus.PENDING;
+        this.scheduledAt = nextRetryAt;
+    }
+
+
     public void cancel() {
         this.status = NotificationStatus.CANCELLED;
     }

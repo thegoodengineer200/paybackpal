@@ -31,6 +31,12 @@ management:
         include: health,info
 
 app:
+  notifications:
+    scheduler-enabled: ${NOTIFICATION_SCHEDULER_ENABLED:true}
+    batch-size: ${NOTIFICATION_BATCH_SIZE:20}
+    poll-interval-ms: ${NOTIFICATION_POLL_INTERVAL_MS:10000}
+    max-retry-count: ${NOTIFICATION_MAX_RETRY_COUNT:3}
+    retry-delay-seconds: ${NOTIFICATION_RETRY_DELAY_SECONDS:300}
   whatsapp:
     provider: ${WHATSAPP_PROVIDER:fake}
   public-actions:

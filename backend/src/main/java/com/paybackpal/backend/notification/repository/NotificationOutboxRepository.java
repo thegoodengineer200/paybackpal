@@ -2,6 +2,7 @@ package com.paybackpal.backend.notification.repository;
 
 import com.paybackpal.backend.notification.entity.NotificationOutbox;
 import com.paybackpal.backend.notification.entity.NotificationStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.OffsetDateTime;
@@ -12,5 +13,9 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
 
     List<NotificationOutbox> findTop50ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
             NotificationStatus status, OffsetDateTime scheduledAt
+    );
+
+    List<NotificationOutbox> findByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(
+            NotificationStatus status, OffsetDateTime scheduledAt, Pageable pageable
     );
 }
