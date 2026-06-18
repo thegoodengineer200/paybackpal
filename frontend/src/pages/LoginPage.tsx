@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Button } from "../components/Button";
 import { Card, CardContent } from "../components/Card";
@@ -14,7 +14,7 @@ type LocationState = {
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loginWithToken } = useAuth();
+  const { loginWithToken, isAuthenticated } = useAuth();
 
   const locationState = location.state as LocationState | null;
   const redirectTo = locationState?.from ?? "/dashboard";
@@ -23,6 +23,12 @@ export function LoginPage() {
   const [password, setPassword] = useState("password123");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectTo, { replace: true });
+    }
+  }, [isAuthenticated, navigate, redirectTo]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,8 +39,7 @@ export function LoginPage() {
     try {
       const response = await login({ email, password });
 
-      loginWithToken(response.token);
-      navigate(redirectTo, { replace: true });
+      loginWithToken(response.accessToken);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
