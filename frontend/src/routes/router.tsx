@@ -10,6 +10,7 @@ import { TransactionsPage } from "../pages/TransactionsPage";
 import { RepaymentsPage } from "../pages/RepaymentsPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PublicOnlyRoute } from "./PublicOnlyRoute";
+import { TransactionDetailPage } from "../pages/TransactionDetailPage";
 
 const router = createBrowserRouter([
   {
@@ -32,35 +33,39 @@ const router = createBrowserRouter([
       </PublicOnlyRoute>
     ),
   },
-  {
-    element: (
-      <ProtectedRoute>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "/dashboard",
-        element: <DashboardPage />,
-      },
-      {
-        path: "/cards",
-        element: <CardsPage />,
-      },
-      {
-        path: "/borrowers",
-        element: <BorrowersPage />,
-      },
-      {
-        path: "/transactions",
-        element: <TransactionsPage />,
-      },
-      {
-        path: "/repayments",
-        element: <RepaymentsPage />,
-      },
-    ],
-  },
+{
+  element: (
+    <ProtectedRoute>
+      <AppLayout />
+    </ProtectedRoute>
+  ),
+  children: [
+    {
+      path: "/dashboard",
+      element: <DashboardPage />,
+    },
+    {
+      path: "/cards",
+      element: <CardsPage />,
+    },
+    {
+      path: "/borrowers",
+      element: <BorrowersPage />,
+    },
+    {
+      path: "/transactions",
+      element: <TransactionsPage />,
+    },
+    {
+      path: "/transactions/:transactionId",
+      element: <TransactionDetailPage />,
+    },
+    {
+      path: "/repayments",
+      element: <RepaymentsPage />,
+    },
+  ],
+},
 ]);
 
 export function AppRouter() {

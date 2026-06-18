@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthenticatedApi } from "../../api/useAuthenticatedApi";
 import type {
   CreateTransactionPayload,
@@ -26,5 +26,29 @@ export function useCreateTransaction() {
         queryKey: [...TRANSACTIONS_QUERY_KEY, variables.cardId],
       });
     },
+  });
+}
+
+export function useTransactionsForCard(cardId: string | null) {
+  const { request } = useAuthenticatedApi();
+
+  return useQuery({
+    queryKey: [...TRANSACTIONS_QUERY_KEY, cardId],
+    queryFn: () =>
+      request<TransactionResponse[]>(`/api/v1/cards/${cardId}/transactions`),
+    enabled: Boolean(cardId),
+    retry: false,
+  });
+}
+
+export function useTransaction(transactionId: string | undefined) {
+  const { request } = useAuthenticatedApi();
+
+  return useQuery({
+    queryKey: [...TRANSACTIONS_QUERY_KEY, "detail", transactionId],
+    queryFn: () =>
+      request<TransactionResponse>(`/api/v1/transactions/${transactionId}`),
+    enabled: Boolean(transactionId),
+    retry: false,
   });
 }

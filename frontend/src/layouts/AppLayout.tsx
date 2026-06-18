@@ -27,7 +27,7 @@ export function AppLayout() {
 
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  const currentTitle = routeTitles[location.pathname] ?? "PayBackPal";
+  const currentTitle = getCurrentTitle(location.pathname);
 
   function handleLogout() {
     logout();
@@ -37,6 +37,14 @@ export function AppLayout() {
   function closeMobileNav() {
     setIsMobileNavOpen(false);
   }
+
+  function getCurrentTitle(pathname: string): string {
+  if (pathname.startsWith("/transactions/")) {
+    return "Transaction detail";
+  }
+
+  return routeTitles[pathname] ?? "PayBackPal";
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
