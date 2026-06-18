@@ -8,6 +8,8 @@ import { CardsPage } from "../pages/CardsPage";
 import { BorrowersPage } from "../pages/BorrowersPage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { RepaymentsPage } from "../pages/RepaymentsPage";
+import { ProtectedRoute } from "./ProtectedRoute";
+import { PublicOnlyRoute } from "./PublicOnlyRoute";
 
 const router = createBrowserRouter([
   {
@@ -16,14 +18,26 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: <LoginPage />,
+    element: (
+      <PublicOnlyRoute>
+        <LoginPage />
+      </PublicOnlyRoute>
+    ),
   },
   {
     path: "/register",
-    element: <RegisterPage />,
+    element: (
+      <PublicOnlyRoute>
+        <RegisterPage />
+      </PublicOnlyRoute>
+    ),
   },
   {
-    element: <AppLayout />,
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         path: "/dashboard",

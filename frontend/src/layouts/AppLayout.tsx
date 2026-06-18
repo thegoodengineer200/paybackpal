@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useNavigate } from "react-router";
+import { useAuth } from "../features/auth/AuthContext";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard" },
@@ -9,6 +10,14 @@ const navItems = [
 ];
 
 export function AppLayout() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-gray-200 bg-white px-5 py-6 md:block">
@@ -49,7 +58,11 @@ export function AppLayout() {
               </h2>
             </div>
 
-            <button className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
               Logout
             </button>
           </div>

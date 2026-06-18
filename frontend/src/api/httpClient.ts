@@ -27,11 +27,7 @@ export async function httpClient<T>(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-
-    throw new Error(
-      errorText || `Request failed with status ${response.status}`,
-    );
+    throw new Error(await extractErrorMessage(response));
   }
 
   if (response.status === 204) {
@@ -39,4 +35,27 @@ export async function httpClient<T>(
   }
 
   return response.json() as Promise<T>;
+}
+
+async function extractErrorMessage(response: Response): Promise<string> {
+  const fallbackMessage = `Request failed with status ${response.status}`;
+
+  try {
+    const contentType = response.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      const body = (await response.json()) as {
+        message?: string;
+        error?: string;
+        detail?: string;
+      };
+
+      return body.message ?? body.error ?? body.detail ?? fallbackMessage;
+    }
+
+    const text = await response.text();
+    return text || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
