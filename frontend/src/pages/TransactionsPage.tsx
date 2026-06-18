@@ -1,10 +1,21 @@
+import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
+import { PageHeader } from "../components/PageHeader";
+
 export function TransactionsPage() {
   return (
     <section>
-      <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-      <p className="mt-2 text-gray-600">
-        Personal and borrowed transaction logging will come here.
-      </p>
+      <PageHeader
+        title="Transactions"
+        description="Log personal card expenses and borrowed transactions with split tracking."
+        action={<Button type="button">Log transaction</Button>}
+      />
+
+      <EmptyState
+        title="No transactions yet"
+        description="Once you add a card, you can start logging expenses and borrower splits."
+        action={<Button type="button">Log transaction</Button>}
+      />
     </section>
   );
 }

@@ -1,10 +1,21 @@
+import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
+import { PageHeader } from "../components/PageHeader";
+
 export function BorrowersPage() {
   return (
     <section>
-      <h1 className="text-2xl font-bold text-gray-900">Borrowers</h1>
-      <p className="mt-2 text-gray-600">
-        Borrower contacts and phone numbers will come here.
-      </p>
+      <PageHeader
+        title="Borrowers"
+        description="Manage friends and contacts who borrow against your card transactions."
+        action={<Button type="button">Add borrower</Button>}
+      />
+
+      <EmptyState
+        title="No borrowers yet"
+        description="Add borrower contacts so you can split credit card transactions with them."
+        action={<Button type="button">Add borrower</Button>}
+      />
     </section>
   );
 }

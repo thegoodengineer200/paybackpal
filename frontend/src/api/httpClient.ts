@@ -27,7 +27,8 @@ export async function httpClient<T>(
   });
 
   if (!response.ok) {
-    throw new Error(await extractErrorMessage(response));
+    const message = await extractErrorMessage(response);
+    throw new Error(`${message} (status ${response.status})`);
   }
 
   if (response.status === 204) {
@@ -38,7 +39,7 @@ export async function httpClient<T>(
 }
 
 async function extractErrorMessage(response: Response): Promise<string> {
-  const fallbackMessage = `Request failed with status ${response.status}`;
+  const fallbackMessage = `Request failed`;
 
   try {
     const contentType = response.headers.get("content-type");

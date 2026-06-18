@@ -1,10 +1,18 @@
+import { EmptyState } from "../components/EmptyState";
+import { PageHeader } from "../components/PageHeader";
+
 export function RepaymentsPage() {
   return (
     <section>
-      <h1 className="text-2xl font-bold text-gray-900">Repayments</h1>
-      <p className="mt-2 text-gray-600">
-        Borrower split statuses, reminders, reports, and confirmations will come here.
-      </p>
+      <PageHeader
+        title="Repayments"
+        description="Track borrower split statuses, reminders, reports, and confirmations."
+      />
+
+      <EmptyState
+        title="No repayments to track"
+        description="Borrowed transaction splits will appear here once you start logging shared card expenses."
+      />
     </section>
   );
 }
